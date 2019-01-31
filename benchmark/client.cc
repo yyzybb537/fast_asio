@@ -63,7 +63,8 @@ int main() {
                             std::placeholders::_3));
 
                 // 4.发一个包
-                char buf[15 * 1024] = {};
+//                char buf[15 * 1024] = {};
+                char buf[15] = {};
                 std::string packet = fast_asio::default_packet_policy::serialize_to_string(buffer(buf, sizeof(buf)));
                 socket->async_write_some(buffer(packet), [](boost::system::error_code ec, size_t){
                             std::cout << "ping " << ec.message() << std::endl;
