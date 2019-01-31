@@ -8,7 +8,6 @@
 #include <mutex>
 
 class stats {
-    std::thread thread_;
 
 public:
     enum stats_category {
@@ -112,7 +111,7 @@ private:
 private:
     stats() {
         std::thread thread(&stats::thread_run);
-        thread_.swap(thread);
+        thread.detach();
     }
     stats(stats const&) = delete;
     stats(stats &&) = delete;
