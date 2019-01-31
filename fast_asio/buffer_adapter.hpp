@@ -1,7 +1,5 @@
 #pragma once
-#include <boost/asio.hpp>
-#include <boost/asio/streambuf.hpp>
-#include <boost/asio/buffer.hpp>
+#include "hooked_asio.h"
 #include <string>
 #include <cstddef>
 

@@ -1,5 +1,5 @@
 #pragma once
-#include <boost/asio.hpp>
+#include "hooked_asio.h"
 
 namespace fast_asio {
 

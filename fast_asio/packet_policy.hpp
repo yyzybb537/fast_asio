@@ -1,5 +1,5 @@
 #pragma once
-#include <boost/asio/buffer.hpp>
+#include "hooked_asio.h"
 #include <string>
 #include <cstddef>
 #include "buffer_adapter.hpp"

@@ -1,7 +1,5 @@
 #pragma once
-#include <boost/asio.hpp>
-#include <boost/asio/streambuf.hpp>
-#include <boost/system/error_code.hpp>
+#include "hooked_asio.h"
 #include <array>
 #include "buffer_adapter.hpp"
 #include "async_guard.hpp"
