@@ -191,6 +191,11 @@ public:
             return ;
         }
 
+        if (handled_block_bytes_) {
+            post_async_write_some(handler);
+            return ;
+        }
+
         boost::system::error_code ec;
         const_buffer buffers[128];
         const_buffer* buf_begin = &buffers[0];
@@ -198,17 +203,9 @@ public:
 
         size_t bytes = peek_packets(buf_begin, buf_end, ec);
         if (bytes > 0) {
-            if (!handled_block_bytes_) {
-                handler_context_scoped scoped(this, bytes);
-                handler(boost::system::error_code(), buf_begin, buf_end);
-                recv_buffer_.consume(bytes);
-            } else if (handled_block_bytes_ == bytes) {
-                read_reply(handler);
-            } else {
-                get_io_context().post([this, handler]{
-                        this->async_read_some(handler);
-                        });
-            }
+            handler_context_scoped scoped(this, bytes);
+            handler(boost::system::error_code(), buf_begin, buf_end);
+            recv_buffer_.consume(bytes);
             return ;
         }
 
@@ -222,6 +219,13 @@ public:
     }
 
 private:
+    template <typename ReadHandler>
+    void post_async_write_some(ReadHandler && handler) {
+        get_io_context().post([this, handler]{
+                this->async_read_some(handler);
+                });
+    }
+
     template <typename ReadHandler>
     void read_reply(ReadHandler && handler) {
         stream_.async_read_some(recv_buffer_.prepare(opt_.per_read_size),
