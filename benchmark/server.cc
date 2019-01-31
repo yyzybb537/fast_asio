@@ -7,6 +7,7 @@ using namespace boost::asio::ip;
 
 // socket type
 typedef fast_asio::packet_stream<tcp::socket> socket_t;
+//typedef fast_asio::packet_read_stream<tcp::socket> socket_t;
 typedef std::shared_ptr<socket_t> socket_ptr;
 
 void onReceive(socket_ptr socket, boost::system::error_code ec, const_buffer* buf_begin, const_buffer* buf_end) {
@@ -17,8 +18,16 @@ void onReceive(socket_ptr socket, boost::system::error_code ec, const_buffer* bu
 
 //    std::cout << "onReceive" << std::endl;
 
+    // copy test
+//    streambuf sb;
+//    for (auto it = buf_begin; it != buf_end; ++it) {
+//        auto mb = sb.prepare(it->size());
+//        ::memcpy(mb.data(), it->data(), it->size());
+//        sb.commit(it->size());
+//    }
+
     // ping-pong
-    socket->async_write_some(fast_asio::buffers_ref(buf_begin, buf_end));
+    socket->async_write_some(fast_asio::buffers_ref(buf_begin, buf_end), [](boost::system::error_code, size_t){});
 
     socket->async_read_some(std::bind(&onReceive, socket,
                 std::placeholders::_1,

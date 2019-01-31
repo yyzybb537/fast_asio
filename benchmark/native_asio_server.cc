@@ -10,7 +10,7 @@ typedef tcp::socket socket_t;
 typedef std::shared_ptr<socket_t> socket_ptr;
 typedef std::shared_ptr<streambuf> streambuf_ptr;
 
-void onReceive(socket_ptr socket, streambuf_ptr sb, boost::system::error_code ec, size_t bytes) {
+void onReceive(socket_ptr socket, streambuf_ptr sb, streambuf_ptr wsb, boost::system::error_code ec, size_t bytes) {
     if (ec) {
         std::cout << "disconnected, reason:" << ec.message() << std::endl;
         return ;
@@ -21,12 +21,16 @@ void onReceive(socket_ptr socket, streambuf_ptr sb, boost::system::error_code ec
     // ps:此处假设不会被拆包, 仅用于测试原生asio的性能做对比
     sb->commit(bytes);
 
+    wsb->consume(wsb->size());
+    buffer_copy(wsb->prepare(bytes), sb->data());
+    wsb->commit(bytes);
+
     // ping-pong
-    socket->async_write_some(sb->data(), [](boost::system::error_code ec, size_t bytes){});
+    socket->async_write_some(wsb->data(), [wsb](boost::system::error_code ec, size_t bytes){});
 
     sb->consume(bytes);
 
-    socket->async_read_some(sb->prepare(4096), std::bind(&onReceive, socket, sb,
+    socket->async_read_some(sb->prepare(4096), std::bind(&onReceive, socket, sb, wsb,
                 std::placeholders::_1,
                 std::placeholders::_2));
 }
@@ -41,7 +45,8 @@ void onAccept(tcp::acceptor* acceptor, socket_ptr socket, boost::system::error_c
 
     // 2.连接成功, 发起读操作
     streambuf_ptr sb(new streambuf);
-    socket->async_read_some(sb->prepare(4096), std::bind(&onReceive, socket, sb,
+    streambuf_ptr wsb(new streambuf);
+    socket->async_read_some(sb->prepare(4096), std::bind(&onReceive, socket, sb, wsb,
                 std::placeholders::_1,
                 std::placeholders::_2));
 
