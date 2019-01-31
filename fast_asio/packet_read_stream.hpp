@@ -35,7 +35,7 @@ private:
     streambuf recv_buffer_;
 
     // is in async_read_some handler context
-    volatile bool is_in_handler_context_ = false;
+    volatile size_t handled_block_bytes_ = 0;
 
     // packet splitter
     packet_splitter packet_splitter_;
@@ -46,11 +46,11 @@ private:
 
     struct handler_context_scoped {
         packet_read_stream* self_;
-        handler_context_scoped(packet_read_stream* self) : self_(self) {
-            self_->is_in_handler_context_ = true;
+        handler_context_scoped(packet_read_stream* self, size_t bytes) : self_(self) {
+            self_->handled_block_bytes_ = bytes;
         }
         ~handler_context_scoped() {
-            self_->is_in_handler_context_ = false;
+            self_->handled_block_bytes_ = 0;
         }
     };
 
@@ -198,10 +198,12 @@ public:
 
         size_t bytes = peek_packets(buf_begin, buf_end, ec);
         if (bytes > 0) {
-            if (!is_in_handler_context_) {
-                handler_context_scoped scoped(this);
+            if (!handled_block_bytes_) {
+                handler_context_scoped scoped(this, bytes);
                 handler(boost::system::error_code(), buf_begin, buf_end);
                 recv_buffer_.consume(bytes);
+            } else if (handled_block_bytes_ == bytes) {
+                read_reply(handler);
             } else {
                 get_io_context().post([this, handler]{
                         this->async_read_some(handler);
@@ -216,6 +218,12 @@ public:
             return ;
         }
 
+        read_reply(handler);
+    }
+
+private:
+    template <typename ReadHandler>
+    void read_reply(ReadHandler && handler) {
         stream_.async_read_some(recv_buffer_.prepare(opt_.per_read_size),
                 [this, handler](boost::system::error_code ec, size_t bytes_transferred)
                 {
@@ -230,7 +238,6 @@ public:
                 });
     }
 
-private:
     size_t peek_packets(const_buffer* buf_begin, const_buffer*& buf_end,
             boost::system::error_code & ec,
             size_t max_size = std::numeric_limits<size_t>::max())

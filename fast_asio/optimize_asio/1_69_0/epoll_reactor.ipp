@@ -260,7 +260,6 @@ void epoll_reactor::start_op(int op_type, socket_type descriptor,
     {
       if (descriptor_data->try_speculative_[op_type])
       {
-        printf("fast_asio hooked, op=%d\n", op_type);
         if (reactor_op::status status = op->perform())
         {
           if (status == reactor_op::done_and_exhausted)
@@ -283,6 +282,7 @@ void epoll_reactor::start_op(int op_type, socket_type descriptor,
       {
         if ((descriptor_data->registered_events_ & EPOLLOUT) == 0)
         {
+          printf("fast_asio hooked, add EPOLLOUT\n");
           epoll_event ev = { 0, { 0 } };
           ev.events = descriptor_data->registered_events_ | EPOLLOUT;
           ev.data.ptr = descriptor_data;
