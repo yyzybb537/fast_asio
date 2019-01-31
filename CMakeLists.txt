@@ -7,8 +7,8 @@ enable_language(C ASM)
 
 if (CMAKE_BUILD_TYPE)
 else()
-    #set(CMAKE_BUILD_TYPE RELEASE)
-    set(CMAKE_BUILD_TYPE DEBUG)
+    set(CMAKE_BUILD_TYPE RELEASE)
+    #set(CMAKE_BUILD_TYPE DEBUG)
 endif()
 
 message("------------ Options -------------")

@@ -1,6 +1,7 @@
 #include <fast_asio/fast_asio.hpp>
 #include <iostream>
 #include <memory>
+#include "stat.hpp"
 
 //struct Timer { Timer() : tp(system_clock::now()) {} virtual ~Timer() { auto dur = system_clock::now() - tp; O("Cost " << duration_cast<milliseconds>(dur).count() << " ms"); } system_clock::time_point tp; };
 //struct Bench : public Timer { Bench() : val(0) {} virtual ~Bench() { stop(); } void stop() { auto dur = system_clock::now() - tp; O("Per op: " << duration_cast<nanoseconds>(dur).count() / std::max(val, 1L) << " ns"); auto perf = (double)val / duration_cast<milliseconds>(dur).count() / 10; if (perf < 1) O("Performance: " << std::setprecision(3) << perf << " w/s"); else O("Performance: " << perf << " w/s"); } Bench& operator++() { ++val; return *this; } Bench& operator++(int) { ++val; return *this; } Bench& add(long v) { val += v; return *this; } long val; };
@@ -18,6 +19,12 @@ void onReceive(socket_ptr socket, boost::system::error_code ec, const_buffer* bu
         return ;
     }
 
+    size_t bytes = 0;
+    for (auto it = buf_begin; it != buf_end; ++it)
+        bytes += it->size();
+
+    stats::instance().inc(stats::qps, 1);
+    stats::instance().inc(stats::bytes, bytes);
 //    std::cout << "onReceive" << std::endl;
 
     // ping-pong
@@ -56,7 +63,7 @@ int main() {
                             std::placeholders::_3));
 
                 // 4.发一个包
-                char buf[] = "123456";
+                char buf[15 * 1024] = {};
                 std::string packet = fast_asio::default_packet_policy::serialize_to_string(buffer(buf, sizeof(buf)));
                 socket->async_write_some(buffer(packet), [](boost::system::error_code ec, size_t){
                             std::cout << "ping " << ec.message() << std::endl;
