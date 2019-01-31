@@ -36,10 +36,10 @@ public:
 
 class async_scoped
 {
-    async_guard_ptr& async_guard_;
+    async_guard_ptr const& async_guard_;
 
 public:
-    async_scoped(async_guard_ptr & guard) : async_guard_(guard) {
+    async_scoped(async_guard_ptr const& guard) : async_guard_(guard) {
         async_guard_->mutex().lock();
     }
 

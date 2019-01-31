@@ -2,6 +2,7 @@
 #include <boost/asio.hpp>
 #include <boost/asio/streambuf.hpp>
 #include <boost/system/error_code.hpp>
+#include <array>
 #include "buffer_adapter.hpp"
 #include "async_guard.hpp"
 
@@ -18,10 +19,12 @@ public:
     using next_layer_type = typename std::remove_reference<NextLayer>::type;
 
     /// The type of the lowest layer.
-    using lowest_layer_type = get_lowest_layer<next_layer_type>;
+    using lowest_layer_type = typename next_layer_type::lowest_layer_type;
 
     /// The type of the executor associated with the object.
     using executor_type = typename next_layer_type::executor_type;
+
+    using packet_buffer_type = PacketBuffer;
 
     typedef void (*cb_type)(boost::system::error_code, std::size_t);
 
@@ -215,14 +218,14 @@ private:
 
         packet* pack = send_queue_.front();
 
-        const_buffers_1 buffers[128];
+        const_buffer buffers[128];
         size_t count = 0;
         size_t bytes = 0;
         while (count < sizeof(buffers)/sizeof(buffers[0])
             && bytes < opt_.max_size_per_send
             && pack)
         {
-            const_buffers_1 buf = buffer_adapter<PacketBuffer>::data(pack->buf_);
+            const_buffer buf = buffer_adapter<PacketBuffer>::data(pack->buf_);
             bytes += buf.size();
             std::swap(buf, buffers[count]);
             ++count;
@@ -234,7 +237,7 @@ private:
 
         sending_ = true;
         auto async_guard = async_guard_;
-        stream_.async_write_some(buffer(buffers, count), [this, async_guard](boost::system::error_code const& ec, size_t bytes)
+        stream_.async_write_some(buffers_ref(&buffers[0], count), [this, async_guard](boost::system::error_code const& ec, size_t bytes)
                 {
                     async_scoped scoped(async_guard);
                     if (!scoped)
@@ -296,7 +299,7 @@ private:
         if (handler) {
             get_io_context().post([handler, ec, n]()
                 {
-                    handler(boost::system::error_code(), ec, n);
+                    handler(ec, n);
                 });
         }
     }

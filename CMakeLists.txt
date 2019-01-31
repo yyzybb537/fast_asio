@@ -7,8 +7,8 @@ enable_language(C ASM)
 
 if (CMAKE_BUILD_TYPE)
 else()
-    set(CMAKE_BUILD_TYPE RELEASE)
-    #set(CMAKE_BUILD_TYPE DEBUG)
+    #set(CMAKE_BUILD_TYPE RELEASE)
+    set(CMAKE_BUILD_TYPE DEBUG)
 endif()
 
 message("------------ Options -------------")
@@ -80,5 +80,5 @@ function(Exec target source)
 endfunction()
 
 Exec(benchmark_client ${PROJECT_SOURCE_DIR}/benchmark/client.cc)
-#Exec(benchmark_server ${PROJECT_SOURCE_DIR}/benchmark/server.cc)
+Exec(benchmark_server ${PROJECT_SOURCE_DIR}/benchmark/server.cc)
 

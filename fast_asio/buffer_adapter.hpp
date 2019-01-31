@@ -5,24 +5,6 @@
 #include <string>
 #include <cstddef>
 
-namespace boost {
-namespace asio {
-        
-template <typename Iter>
-inline Iter buffer_sequence_begin(std::pair<Iter, Iter> const& p)
-{
-  return p.first;
-}
-
-template <typename Iter>
-inline Iter buffer_sequence_end(std::pair<Iter, Iter> const& p)
-{
-  return p.second;
-}
-
-} //namespace asio
-} //namespace boost
-
 namespace fast_asio {
 
 using namespace boost::asio;
@@ -59,5 +41,33 @@ struct buffer_adapter<basic_streambuf<Alloc>>
         std::swap(lhs, rhs);
     }
 };
+
+template <typename Buffer>
+struct buffer_sequence_ref
+{
+    Buffer* begin_;
+    Buffer* end_;
+
+    buffer_sequence_ref(Buffer* begin, Buffer* end)
+        : begin_(begin), end_(end) {}
+
+    Buffer* begin() const {
+        return begin_;
+    }
+
+    Buffer* end() const {
+        return end_;
+    }
+};
+
+template <typename Buffer>
+inline buffer_sequence_ref<Buffer> buffers_ref(Buffer* begin, Buffer* end) {
+    return buffer_sequence_ref<Buffer>(begin, end);
+}
+
+template <typename Buffer>
+inline buffer_sequence_ref<Buffer> buffers_ref(Buffer* begin, size_t count) {
+    return buffer_sequence_ref<Buffer>(begin, begin + count);
+}
 
 } //namespace fast_asio

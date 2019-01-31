@@ -16,12 +16,18 @@ public:
     using next_layer_type = typename std::remove_reference<NextLayer>::type;
 
     /// The type of the lowest layer.
-    using lowest_layer_type = get_lowest_layer<next_layer_type>;
+    using lowest_layer_type = typename next_layer_type::lowest_layer_type;
 
     /// The type of the executor associated with the object.
     using executor_type = typename next_layer_type::executor_type;
 
-    using base_type = packet_read_stream<packet_write_stream<NextLayer, PacketBuffer>, PacketBuffer>;
+    using packet_buffer_type = PacketBuffer;
+
+    using write_stream_type = packet_write_stream<NextLayer, PacketBuffer>;
+
+    using read_stream_type = packet_read_stream<write_stream_type, PacketBuffer>;
+
+    using base_type = read_stream_type;
 
     struct option : public write_stream_type::option, public read_stream_type::option {};
 

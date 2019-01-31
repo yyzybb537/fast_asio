@@ -6,6 +6,7 @@
 #include "buffer_adapter.hpp"
 #include "async_guard.hpp"
 #include "packet_policy.hpp"
+#include "error_code.hpp"
 
 namespace fast_asio {
 
@@ -14,32 +15,19 @@ using namespace boost::asio;
 template <typename NextLayer,
           typename PacketBuffer = streambuf>
 class packet_read_stream
+    : public packet_read_stream_base
 {
 public:
     /// The type of the next layer.
     using next_layer_type = typename std::remove_reference<NextLayer>::type;
 
     /// The type of the lowest layer.
-    using lowest_layer_type = get_lowest_layer<next_layer_type>;
+    using lowest_layer_type = typename next_layer_type::lowest_layer_type;
 
     /// The type of the executor associated with the object.
     using executor_type = typename next_layer_type::executor_type;
 
-    typedef void (*cb_type)(boost::system::error_code, std::size_t);
-
-    using read_handler = std::function<void(boost::system::error_code const& ec, const_buffer* buf_begin, const_buffer* buf_end)>;
-
-    enum class split_result : size_t { error = (size_t)-1, not_enough_packet = 0 };
-
-    using packet_splitter = std::function<size_t(const char* buf, size_t len)>;
-
-    struct option {
-        // max allow packet size
-        size_t max_packet_size = 64 * 1024;
-
-        // size of per read op
-        size_t per_read_size = 16 * 1024;
-    };
+    using packet_buffer_type = PacketBuffer;
 
 private:
     // next layer stream
@@ -48,12 +36,25 @@ private:
     // receive buffer
     streambuf recv_buffer_;
 
+    // is in async_read_some handler context
+    volatile bool is_in_handler_context_ = false;
+
     // packet splitter
     packet_splitter packet_splitter_;
 
     option opt_;
 
     boost::system::error_code ec_;
+
+    struct handler_context_scoped {
+        packet_read_stream* self_;
+        handler_context_scoped(packet_read_stream* self) : self_(self) {
+            self_->is_in_handler_context_ = true;
+        }
+        ~handler_context_scoped() {
+            self_->is_in_handler_context_ = false;
+        }
+    };
 
 public:
     template <typename ... Args>
@@ -124,6 +125,15 @@ public:
         stream_.async_write_some(buffers, std::forward<WriteHandler>(handler));
     }
 
+    template <typename WriteHandler = cb_type>
+        BOOST_ASIO_INITFN_RESULT_TYPE(WriteHandler,
+            void (boost::system::error_code, std::size_t))
+    async_write_some(PacketBuffer && buffer,
+            BOOST_ASIO_MOVE_ARG(WriteHandler) handler = nullptr)
+    {
+        stream_.async_write_some(std::move(buffer), std::forward<WriteHandler>(handler));
+    }
+
     /// ------------------- read_some
     template <typename MutableBufferSequence>
     std::size_t read_some(const MutableBufferSequence& buffers) {
@@ -154,12 +164,7 @@ public:
             size_t bytes = peek_packets(buf_begin, buf_end, ec, capacity);
             if (bytes > 0) {
                 ec = boost::system::error_code();
-                boost::asio::buffer_copy(buffers, std::make_pair(buf_begin, buf_end));
-//                boost::asio::buffer_copy(detail::multiple_buffers(),
-//                        detail::multiple_buffers(),
-//                        buffer_sequence_begin(buffers),
-//                        buffer_sequence_end(buffers),
-//                        buf_begin, buf_end);
+                boost::asio::buffer_copy(buffers, buffers_ref(buf_begin, buf_end));
                 recv_buffer_.consume(bytes);
                 return bytes;
             }
@@ -178,9 +183,9 @@ public:
         }
     }
 
-    template <typename MutableBufferSequence, typename ReadHandler>
+    template <typename ReadHandler>
         BOOST_ASIO_INITFN_RESULT_TYPE(ReadHandler,
-            void(boost::system::error_code, const_buffer))
+            void(boost::system::error_code, const_buffer*, const_buffer*))
     async_read_some(BOOST_ASIO_MOVE_ARG(ReadHandler) handler)
     {
         if (ec_) {
@@ -195,8 +200,15 @@ public:
 
         size_t bytes = peek_packets(buf_begin, buf_end, ec);
         if (bytes > 0) {
-            handler(boost::system::error_code(), buf_begin, buf_end);
-            recv_buffer_.consume(bytes);
+            if (!is_in_handler_context_) {
+                handler_context_scoped scoped(this);
+                handler(boost::system::error_code(), buf_begin, buf_end);
+                recv_buffer_.consume(bytes);
+            } else {
+                get_io_context().post([this, handler]{
+                        this->async_read_some(handler);
+                        });
+            }
             return ;
         }
 
@@ -228,7 +240,7 @@ private:
         ec = boost::system::error_code();
         size_t bytes = 0;
         for (auto it = buf_begin; it != buf_end; ++it) {
-            size_t packet_size = packet_splitter_(recv_buffer_.gptr() + bytes, recv_buffer_.size() - bytes);
+            size_t packet_size = packet_splitter_((const char*)recv_buffer_.data().data() + bytes, recv_buffer_.size() - bytes);
             if (packet_size == (size_t)split_result::error) {
                 ec = packet_parse_error();
                 buf_end = it;
@@ -245,7 +257,7 @@ private:
                 return bytes;
             }
 
-            *it = const_buffer(recv_buffer_.gptr() + bytes, packet_size);
+            *it = const_buffer((const char*)recv_buffer_.data().data() + bytes, packet_size);
             bytes += packet_size;
         }
 
