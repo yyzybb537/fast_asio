@@ -1,6 +1,7 @@
 #include <boost/asio.hpp>
 #include <iostream>
 #include <memory>
+#include "stat.hpp"
 
 using namespace boost::asio;
 using namespace boost::asio::ip;
@@ -17,6 +18,8 @@ void onReceive(socket_ptr socket, streambuf_ptr sb, streambuf_ptr wsb, boost::sy
     }
 
 //    std::cout << "onReceive" << std::endl;
+    stats::instance().inc(stats::qps, 1);
+    stats::instance().inc(stats::bytes, bytes);
 
     // ps:此处假设不会被拆包, 仅用于测试原生asio的性能做对比
     sb->commit(bytes);

@@ -1,6 +1,7 @@
 #include <fast_asio/fast_asio.hpp>
 #include <iostream>
 #include <memory>
+#include "stat.hpp"
 
 using namespace boost::asio;
 using namespace boost::asio::ip;
@@ -16,6 +17,12 @@ void onReceive(socket_ptr socket, boost::system::error_code ec, const_buffer* bu
         return ;
     }
 
+    size_t bytes = 0;
+    for (auto it = buf_begin; it != buf_end; ++it)
+        bytes += it->size();
+
+    stats::instance().inc(stats::qps, 1);
+    stats::instance().inc(stats::bytes, bytes);
 //    std::cout << "onReceive" << std::endl;
 
     // copy test
