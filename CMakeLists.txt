@@ -81,4 +81,6 @@ endfunction()
 
 Exec(benchmark_client ${PROJECT_SOURCE_DIR}/benchmark/client.cc)
 Exec(benchmark_server ${PROJECT_SOURCE_DIR}/benchmark/server.cc)
+Exec(native_asio_client ${PROJECT_SOURCE_DIR}/benchmark/native_asio_client.cc)
+Exec(native_asio_server ${PROJECT_SOURCE_DIR}/benchmark/native_asio_server.cc)
 
