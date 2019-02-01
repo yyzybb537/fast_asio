@@ -44,6 +44,10 @@ struct default_packet_policy
         ::memcpy(out, buf.data(), buf.size());
         return std::move(s);
     }
+
+    static const_buffer get_body(const_buffer buf) {
+        return (buf += sizeof(uint32_t));
+    }
 };
 
 } //namespace fast_asio

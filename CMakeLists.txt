@@ -84,4 +84,7 @@ Exec(benchmark_client ${PROJECT_SOURCE_DIR}/benchmark/client.cc)
 Exec(benchmark_server ${PROJECT_SOURCE_DIR}/benchmark/server.cc)
 Exec(native_asio_client ${PROJECT_SOURCE_DIR}/benchmark/native_asio_client.cc)
 Exec(native_asio_server ${PROJECT_SOURCE_DIR}/benchmark/native_asio_server.cc)
-
+Exec(client ${PROJECT_SOURCE_DIR}/examples/client.cc)
+Exec(server ${PROJECT_SOURCE_DIR}/examples/server.cc)
+Exec(websocket_client ${PROJECT_SOURCE_DIR}/examples/websocket_client.cc)
+Exec(websocket_server ${PROJECT_SOURCE_DIR}/examples/websocket_server.cc)

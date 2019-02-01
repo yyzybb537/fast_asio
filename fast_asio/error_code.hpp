@@ -7,6 +7,7 @@ enum class e_fast_asio_error_code : int
 {
     ec_ok = 0,
     ec_parse_error = 1,
+    ec_close_error = 2,
 };
 
 class fast_asio_error_category
@@ -24,6 +25,9 @@ public:
 
             case (int)e_fast_asio_error_code::ec_parse_error:
                 return "packet parse error";
+
+            case (int)e_fast_asio_error_code::ec_close_error:
+                return "close error";
         }
 
         return "unkown fast asio error code";
