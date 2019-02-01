@@ -3,6 +3,7 @@
 #include <array>
 #include "buffer_adapter.hpp"
 #include "async_guard.hpp"
+#include "method_adapter.hpp"
 
 namespace fast_asio {
 
@@ -11,6 +12,8 @@ using namespace boost::asio;
 template <typename NextLayer,
           typename PacketBuffer = streambuf>
 class packet_write_stream
+    : public forward_close<packet_write_stream<NextLayer, PacketBuffer>, NextLayer>
+    , public forward_shutdown<packet_write_stream<NextLayer, PacketBuffer>, NextLayer>
 {
 public:
     /// The type of the next layer.
@@ -109,14 +112,6 @@ public:
 
     lowest_layer_type const& lowest_layer() const {
         return stream_.lowest_layer();
-    }
-
-    void close() {
-        stream_.close();
-    }
-
-    void close(boost::system::error_code & ec) {
-        stream_.close(ec);
     }
 
     /// ------------------- write_some

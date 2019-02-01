@@ -34,9 +34,6 @@ int main() {
 
     socket_ptr socket(new socket_t(ioc));
 
-    // 1.设置拆包函数 (默认函数就是这个, 可以不写这一行)
-    socket->set_packet_splitter(&fast_asio::default_packet_policy::split);
-
     // 2.连接
     tcp::endpoint addr(address::from_string("127.0.0.1"), 1234);
     socket->next_layer().next_layer().async_connect(addr,

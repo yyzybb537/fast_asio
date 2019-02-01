@@ -14,6 +14,8 @@ template <typename NextLayer,
           typename PacketBuffer = streambuf>
 class packet_read_stream
     : public packet_read_stream_base
+    , public forward_close<packet_read_stream<NextLayer, PacketBuffer>, NextLayer>
+    , public forward_shutdown<packet_read_stream<NextLayer, PacketBuffer>, NextLayer>
 {
 public:
     /// The type of the next layer.
@@ -91,14 +93,6 @@ public:
 
     lowest_layer_type const& lowest_layer() const {
         return stream_.lowest_layer();
-    }
-
-    void close() {
-        stream_.close();
-    }
-
-    void close(boost::system::error_code & ec) {
-        stream_.close(ec);
     }
 
     /// ------------------- write_some
