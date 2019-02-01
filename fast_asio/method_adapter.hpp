@@ -155,7 +155,7 @@ struct forward_shutdown
 
 // ------------ close
 template <typename T, typename Base, int flags>
-struct forward_close_helper;// {};
+struct forward_close_helper {};
 
 template <typename T, typename Base>
 struct forward_close_helper<T, Base, has_flag_void> {
