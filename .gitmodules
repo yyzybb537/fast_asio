@@ -1,0 +1,3 @@
+[submodule "third_party/libquic"]
+	path = third_party/libquic
+	url = https://github.com/yyzybb537/libquic.git
