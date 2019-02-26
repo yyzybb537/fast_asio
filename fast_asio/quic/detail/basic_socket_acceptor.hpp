@@ -1,10 +1,11 @@
 // Copy from asio::basic_socket_acceptor.hpp and change it.
 #pragma once
 
-#include "../asio_include.h"
+#include "../../asio_include.h"
 #include "basic_socket.hpp"
 
 namespace fast_asio {
+namespace quic {
 namespace detail {
 
 /// Provides the ability to accept new connections.
@@ -1936,5 +1937,6 @@ public:
 };
 
 } // namespace detail
+} // namespace quic
 } // namespace fast_asio
 

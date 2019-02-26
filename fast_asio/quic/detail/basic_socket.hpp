@@ -1,9 +1,10 @@
 // Copy from asio::basic_socket.hpp and change it.
 #pragma once
 
-#include "../asio_include.h"
+#include "../../asio_include.h"
 
 namespace fast_asio {
+namespace quic {
 namespace detail {
 
 //using namespace boost::asio;
@@ -566,39 +567,6 @@ public:
   {
     this->get_service().cancel(this->get_implementation(), ec);
     BOOST_ASIO_SYNC_OP_VOID_RETURN(ec);
-  }
-
-  /// Determine whether the socket is at the out-of-band data mark.
-  /**
-   * This function is used to check whether the socket input is currently
-   * positioned at the out-of-band data mark.
-   *
-   * @return A bool indicating whether the socket is at the out-of-band data
-   * mark.
-   *
-   * @throws boost::system::system_error Thrown on failure.
-   */
-  bool at_mark() const
-  {
-    boost::system::error_code ec;
-    bool b = this->get_service().at_mark(this->get_implementation(), ec);
-    boost::asio::detail::throw_error(ec, "at_mark");
-    return b;
-  }
-
-  /// Determine whether the socket is at the out-of-band data mark.
-  /**
-   * This function is used to check whether the socket input is currently
-   * positioned at the out-of-band data mark.
-   *
-   * @param ec Set to indicate what error occurred, if any.
-   *
-   * @return A bool indicating whether the socket is at the out-of-band data
-   * mark.
-   */
-  bool at_mark(boost::system::error_code& ec) const
-  {
-    return this->get_service().at_mark(this->get_implementation(), ec);
   }
 
   /// Determine the number of bytes available for reading.
@@ -1709,5 +1677,6 @@ private:
 };
 
 } // namespace detail
+} // namespace quic
 } // namespace fast_asio
 
