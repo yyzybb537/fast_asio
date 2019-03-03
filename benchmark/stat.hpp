@@ -6,6 +6,7 @@
 #include <chrono>
 #include <string>
 #include <mutex>
+#include <functional>
 
 class stats {
 
@@ -30,11 +31,16 @@ public:
 
     std::mutex mtx_;
     std::vector<values_type*> values_list_;
+    std::function<std::string()> message_functor_;
 
 public:
     static stats & instance() {
         static stats obj;
         return obj;
+    }
+
+    void set_message_functor(std::function<std::string()> fn) {
+        message_functor_ = fn;
     }
 
     void inc(int type, int64_t val) {
@@ -67,6 +73,8 @@ private:
             for (int i = 0; i < max_stats_category; ++i) {
                 printf("%s: %s | ", category_name(i), integer2str(this_second[i] - last[i]).c_str());
             }
+            if (message_functor_)
+                printf("%s |", message_functor_().c_str());
             printf("\n");
 
             std::swap(last, this_second);
