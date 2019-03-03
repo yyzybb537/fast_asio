@@ -24,6 +24,12 @@ class stream_handle
 
     QuartcStream* stream_;
 
+    typedef std::function<bool(bool async)> async_write_handler;
+    typedef std::function<bool(bool async)> async_read_handler;
+
+    async_write_handler async_write_handler_;
+    async_read_handler async_read_handler_;
+
     // OnClose设为true, 之后stream_被删除.
     volatile bool closed_ = false;
 
@@ -57,73 +63,6 @@ public:
     void set_threshold(uint64_t threshold) { threshold_ = threshold; }
 
     uint64_t threshold() const { return threshold_; }
-
-    ssize_t readv(const struct iovec* iov, size_t iov_count, boost::system::error_code & ec)
-    {
-        std::unique_lock<std::recursive_mutex> lock(session_->mutex());
-        ec.clear();
-
-        if (closed_) {
-            ec = boost::asio::error::bad_descriptor;
-            return -1;
-        }
-
-        if (stream_->fin_received()) {
-            ec = boost::asio::error::shut_down;
-            return 0;
-        }
-
-        int res = stream_->Readv(iov, iov_count);
-        if (res == 0) {
-            if (closed_) {
-                ec = boost::asio::error::bad_descriptor;
-                return -1;
-            }
-
-            if (stream_->fin_received()) {
-                return 0;
-            }
-
-            ec = boost::asio::error::try_again;
-            return -1;
-        }
-
-        return res;
-    }
-
-    ssize_t writev(const struct iovec* iov, size_t iov_count, bool fin)
-    {
-        std::unique_lock<std::recursive_mutex> lock(session_->mutex());
-        ec.clear();
-
-        if (closed_) {
-            ec = boost::asio::error::bad_descriptor;
-            return -1;
-        }
-
-        if (stream_->fin_sent()) {
-            ec = boost::asio::error::shut_down;
-            return 0;
-        }
-
-        int res = stream_->WritevData(iov, iov_count, fin);
-        if (res == 0) {
-            if (closed_) {
-                ec = boost::asio::error::bad_descriptor;
-                return -1;
-            }
-
-            if (stream_->fin_sent()) {
-                ec = boost::asio::error::shut_down;
-                return 0;
-            }
-
-            ec = boost::asio::error::try_again;
-            return -1;
-        }
-
-        return res;
-    }
 
     void shutdown(boost::asio::socket_base::shutdown_type type)
     {
@@ -165,6 +104,32 @@ public:
         return stream_->ReadableBytes();
     }
 
+    void async_write_some(async_write_handler handler)
+    {
+        std::unique_lock<std::recursive_mutex> lock(session_->mutex());
+        if (handler(false))
+            return ;
+
+        async_write_handler_ = handler;
+    }
+
+    void reset_async_write_handler() {
+        async_write_handler_ = nullptr;
+    }
+
+    void async_read_some(async_read_handler handler)
+    {
+        std::unique_lock<std::recursive_mutex> lock(session_->mutex());
+        if (handler(false))
+            return ;
+
+        async_read_handler_ = handler;
+    }
+
+    void reset_async_read_handler() {
+        async_read_handler_ = nullptr;
+    }
+
 private:
     // ------------------ Delegate
     void OnDataAvailable(QuartcStreamInterface* stream) override;
@@ -183,6 +148,73 @@ private:
         return threshold_ ? threshold_ : default_threshold;
     }
     // ---------------------------
+
+public:
+    ssize_t readv(const struct iovec* iov, size_t iov_count, boost::system::error_code & ec)
+    {
+        ec.clear();
+
+        if (closed_) {
+            ec = boost::asio::error::bad_descriptor;
+            return -1;
+        }
+
+        if (stream_->fin_received()) {
+            ec = boost::asio::error::shut_down;
+            return 0;
+        }
+
+        int res = stream_->Readv(iov, iov_count);
+        if (res == 0) {
+            if (closed_) {
+                ec = boost::asio::error::bad_descriptor;
+                return -1;
+            }
+
+            if (stream_->fin_received()) {
+                return 0;
+            }
+
+            ec = boost::asio::error::try_again;
+            return -1;
+        }
+
+        return res;
+    }
+
+    ssize_t writev(const struct iovec* iov, size_t iov_count, bool fin, boost::system::error_code & ec)
+    {
+        ec.clear();
+
+        if (closed_) {
+            ec = boost::asio::error::bad_descriptor;
+            return -1;
+        }
+
+        if (stream_->fin_sent()) {
+            ec = boost::asio::error::shut_down;
+            return 0;
+        }
+
+        int res = stream_->WritevData(iov, iov_count, fin);
+        if (res == 0) {
+            if (closed_) {
+                ec = boost::asio::error::bad_descriptor;
+                return -1;
+            }
+
+            if (stream_->fin_sent()) {
+                ec = boost::asio::error::shut_down;
+                return 0;
+            }
+
+            ec = boost::asio::error::try_again;
+            return -1;
+        }
+
+        return res;
+    }
+
 };
 
 } // namespace detail

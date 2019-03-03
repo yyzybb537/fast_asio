@@ -1223,14 +1223,14 @@ public:
 
 #if defined(BOOST_ASIO_ENABLE_OLD_SERVICES)
     return this->get_service().async_accept(this->get_implementation(),
-        peer, static_cast<endpoint_type*>(0),
+        peer.get_implementation(),
         BOOST_ASIO_MOVE_CAST(AcceptHandler)(handler));
 #else // defined(BOOST_ASIO_ENABLE_OLD_SERVICES)
     async_completion<AcceptHandler,
       void (boost::system::error_code)> init(handler);
 
     this->get_service().async_accept(this->get_implementation(),
-        peer, static_cast<endpoint_type*>(0), init.completion_handler);
+        peer.get_implementation(), init.completion_handler);
 
     return init.result.get();
 #endif // defined(BOOST_ASIO_ENABLE_OLD_SERVICES)

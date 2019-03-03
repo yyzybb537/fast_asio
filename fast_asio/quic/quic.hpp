@@ -46,6 +46,8 @@ public:
   /// The Quic socket type.
   typedef basic_multi_stream_socket<quic, quic_socket_service<quic>> session;
 
+  typedef session acceptor;
+
   /// The UDP resolver type.
   typedef basic_resolver<boost::asio::ip::udp> resolver;
 

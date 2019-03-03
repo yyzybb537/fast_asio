@@ -6,9 +6,9 @@ namespace detail {
 
 inline void stream_handle::OnDataAvailable(QuartcStreamInterface* stream) override
 {
-    quic_socket_service & service = boost::asio::use_service<quic_socket_service>(ioc_);
-
-    // TODO: notify service
+    if (async_read_handler_) {
+        async_read_handler_(true);
+    }
 }
 
 inline void stream_handle::OnClose(QuartcStreamInterface* stream) override
@@ -17,16 +17,22 @@ inline void stream_handle::OnClose(QuartcStreamInterface* stream) override
         std::unique_lock<std::recursive_mutex> lock(session_->mutex());
         closed_ = true;
         stream_ = nullptr;
-    }
 
-    quic_socket_service & service = boost::asio::use_service<quic_socket_service>(ioc_);
-    // TODO: notify service
+        if (async_read_handler_) {
+            async_read_handler_(true);
+        }
+
+        if (async_write_handler_) {
+            async_write_handler_(true);
+        }
+    }
 }
 
 inline void stream_handle::OnCanWriteNewData(QuartcStreamInterface* stream) override
 {
-    quic_socket_service & service = boost::asio::use_service<quic_socket_service>(ioc_);
-    // TODO: notify service
+    if (async_write_handler_) {
+        async_write_handler_(true);
+    }
 }
 
 } // namespace detail

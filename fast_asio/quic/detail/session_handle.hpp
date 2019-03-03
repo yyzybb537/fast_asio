@@ -7,6 +7,7 @@
 #include "task_runner_service.hpp"
 #include "connection_visitor.hpp"
 #include "clock.hpp"
+#include "common.hpp"
 
 namespace fast_asio {
 namespace quic {
@@ -19,11 +20,15 @@ typedef std::shared_ptr<session_handle> session_handle_ptr;
 
 class session_handle
     : private QuartcSessionInterface::Delegate,
-    private connection_visitor
+    private connection_visitor,
+    public std::enable_shared_from_this<session_handle>
 {
     boost::asio::io_context & ioc_;
 
     std::recursive_mutex mtx_;
+
+    QuicSocketAddress peer_address_;
+    std::function<void(boost::system::error_code, session_handle_ptr)> connect_handler_;
 
     // native quic session by libquic
     std::shared_ptr<QuartcSession> impl_;
@@ -37,9 +42,14 @@ class session_handle
     // new incoming streams
     std::list<QuartcStreamInterface*> incoming_streams_;
 
+    typedef std::function<void(session_handle_ptr, QuartcStreamInterface*)> async_accept_handler;
+    std::list<async_accept_handler> async_accept_handlers_;
+
     // close reason
     int close_reason_error_code_ = 0;
     bool close_reason_from_remote_ = false;
+
+    bool syning_ = false;
 
     class packet_transport
        : public QuartcSessionInterface::PacketTransport
@@ -57,14 +67,12 @@ class session_handle
         int Write(const char* buffer, size_t buf_len) override
         {
             if (!session_->udp_socket_) return -1;
-            if (!impl_) return -1;
+            if (!session_->impl_) return -1;
 
-            QuicSocketAddress peer_address = impl_->peer_address();
+            QuicSocketAddress peer_address = session_->peer_address();
             if (!peer_address.IsInitialized()) return -1;
 
-            boost::asio::ip::udp::endpoint endpoint(
-                    boost::asio::ip::make_address(peer_address.host().ToString()),
-                    peer_address.port());
+            boost::asio::ip::udp::endpoint endpoint(address_convert(peer_address));
             return session_->udp_socket_->send_to(boost::asio::buffer(buffer, buf_len), endpoint);
         }
     };
@@ -102,6 +110,10 @@ public:
         udp_socket_ = udp_socket;
     }
 
+    std::shared_ptr<boost::asio::ip::udp::socket> native_socket() {
+        return udp_socket_;
+    }
+
     void ProcessUdpPacket(const QuicSocketAddress& self_address,
             const QuicSocketAddress& peer_address,
             const QuicReceivedPacket& packet)
@@ -119,13 +131,19 @@ public:
     void OnConnectionClosed(int error_code, bool from_remote) override;
     // --------------------------------------------------
 
-    QuartcStreamInterface* accept_stream()
+    void OnSyn(QuicSocketAddress peer_address);
+
+    void async_accept(async_accept_handler const& handler)
     {
         std::unique_lock<std::recursive_mutex> lock(mtx_);
-        if (incoming_streams_.empty()) return nullptr;
-        QuartcStreamInterface* stream = incoming_streams_.front();
-        incoming_streams_.pop_front();
-        return stream;
+        if (!incoming_streams_.empty()) {
+            QuartcStreamInterface* stream = incoming_streams_.front();
+            incoming_streams_.pop_front();
+            handler(shared_from_this(), stream);
+            return ;
+        }
+
+        async_accept_handlers_.push_back(handler);
     }
 
     QuartcStreamInterface* create_stream()
@@ -157,6 +175,44 @@ public:
     boost::asio::io_context const& get_io_context() const {
         return ioc_;
     }
+
+    boost::asio::ip::udp::endpoint remote_endpoint() {
+        return address_convert(peer_address());
+    }
+
+    boost::asio::ip::udp::endpoint local_endpoint() {
+        boost::system::error_code ignore_ec;
+        if (!native_socket()) return boost::asio::ip::udp::endpoint();
+        return native_socket()->local_endpoint(ignore_ec);
+    }
+
+    QuicSocketAddress peer_address() {
+        QuicSocketAddress address = impl_->peer_address();
+        if (!address.IsInitialized()) {
+            address = peer_address_;
+        }
+        return address;
+    }
+
+    template <typename ConnectHandler>
+        BOOST_ASIO_INITFN_RESULT_TYPE(ConnectHandler,
+                void (boost::system::error_code, session_handle_ptr))
+        async_connect(const endpoint_type& peer_endpoint,
+                BOOST_ASIO_MOVE_ARG(ConnectHandler) handler)
+        {
+            if (peer_address_.IsInitialized()) {
+                session_handle_ptr self = shared_from_this();
+                get_io_context().post([=]{ handler(boost::asio::error::in_progress, self); });
+                return ;
+            }
+
+            peer_address_ = address_convert(peer_endpoint);
+            connect_handler_ = handler;
+            impl_->OnTransportCanWrite();
+            impl_->Initialize();
+            syning_ = true;
+            impl_->StartCryptoHandshake();
+        }
 };
 
 } // namespace detail

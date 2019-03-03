@@ -23,6 +23,10 @@ public:
         auto now = std::chrono::steady_clock::now();
         return std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch()).count();
     }
+
+    QuicTime Now() {
+        return QuicTime::Zero() + QuicTime::Delta::FromMicroseconds(NowMicroseconds());
+    }
 };
 
 } // namespace detail
